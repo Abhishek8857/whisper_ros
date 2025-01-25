@@ -7,14 +7,11 @@ from rclpy.action import ActionClient
 from whisper_msgs.action import STT
 from std_msgs.msg import String
 
-
-
 class ToText (Node):
   def __init__ (self):
     super().__init__("speech_to_text")
     self.action_client = ActionClient(self, STT, "/whisper/listen")
     self.agent_publisher = self.create_publisher(String, "transcription_text", 100)
-    # self.tool_publisher = self.create_publisher(String, "tool_query", 100)
     self.get_logger().info("Waiting for the action server...")
     self.action_client.wait_for_server()
     self.get_logger().info("Action server ready!")
@@ -43,14 +40,12 @@ class ToText (Node):
     msg = String()
     msg.data = transcribed_text
     self.agent_publisher.publish(msg)
-    self.tool_publisher.publish(msg)
     self.get_logger().info(f"Published message: [{transcribed_text}]")
     
     
   def shutdown_node(self):
       self.get_logger().info("Shutting down node and cleaning up resources...")
       self.agent_publisher.destroy()
-      self.tool_publisher.destroy()
       self.action_client.destroy()
       self.destroy_node()
       self.get_logger().info("Node shutdown completed.")
