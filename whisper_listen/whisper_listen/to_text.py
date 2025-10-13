@@ -1,64 +1,46 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3 
 
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, QoSDurabilityPolicy
-from rclpy.action import ActionClient
-from whisper_msgs.action import STT
 from std_msgs.msg import String
+import threading
 
-class ToText (Node):
-  def __init__ (self):
-    super().__init__("speech_to_text")
-    self.action_client = ActionClient(self, STT, "/whisper/listen")
-    self.agent_publisher = self.create_publisher(String, "transcription_text", 100)
-    self.get_logger().info("Waiting for the action server...")
-    self.action_client.wait_for_server()
-    self.get_logger().info("Action server ready!")
-
-
-  def listen(self):
-    goal = STT.Goal()
-    send_goal_future = self.action_client.send_goal_async(goal)
+class ToText(Node):
+    def __init__(self):
+        super().__init__("to_text")
+        self.publisher = self.create_publisher(String, "transcription_text", 10)
+        self.running = True
+        
+        input_thread = threading.Thread(target=self.read_input)
+        input_thread.daemon = True
+        input_thread.start()
     
-    
-    rclpy.spin_until_future_complete(self, send_goal_future)
-    get_result_future = send_goal_future.result().get_result_async()
-    self.get_logger().info("SPEAK")
-
-    rclpy.spin_until_future_complete(self, get_result_future)
-    result: STT.Result = get_result_future.result().result
-    
-    # Transcribed text
-    transcribed_text = result.transcription.text
-    self.get_logger().info(f"I hear: {transcribed_text}")
-    self.get_logger().info(f"Audio time: {result.transcription.audio_time}")
-    self.get_logger().info(f"Transcription time: {result.transcription.transcription_time}")
-    
-    # Publish the message
-    self.get_logger().info("Publishing the message...")
-    msg = String()
-    msg.data = transcribed_text
-    self.agent_publisher.publish(msg)
-    self.get_logger().info(f"Published message: [{transcribed_text}]")
-    
-    
-  def shutdown_node(self):
-      self.get_logger().info("Shutting down node and cleaning up resources...")
-      self.agent_publisher.destroy()
-      self.action_client.destroy()
-      self.destroy_node()
-      self.get_logger().info("Node shutdown completed.")
-
-
-def main ():
-  rclpy.init()
-  node = ToText()
-  node.listen()
-
-  node.shutdown_node()
-  rclpy.shutdown()
+    def read_input(self):
+        while self.running:
+            user_input = input("Enter a Command: ")
+            if user_input == "exit":
+                self.running == False
+                self.get_logger().info("Exit command recieved. Shutting down ...")
+                rclpy.shutdown()
+                break
+            
+            msg = String()
+            msg.data = user_input
+            self.publisher.publish(msg=msg)
+            self.get_logger().info(f"Published command: {user_input}")
+            
+            
+def main(args=None):
+    rclpy.init(args=args)
+    node = ToText()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        if rclpy.ok():
+            node.destroy_node()
+            rclpy.shutdown()
 
 if __name__ == "__main__":
     main()
-

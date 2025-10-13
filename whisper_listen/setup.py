@@ -19,9 +19,8 @@ setup(
     license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
-        'console_scripts': ['to_text = whisper_listen.to_text:main',
-                            'text_to_rosa = whisper_listen.text_to_rosa:main',
-                            'dummy = whisper_listen.publish_test:main'
+        'console_scripts': ['voice_to_text = whisper_listen.voice_to_text:main',
+                            'to_text = whisper_listen.to_text:main'
         ],
     },
 )

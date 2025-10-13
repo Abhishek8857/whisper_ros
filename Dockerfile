@@ -56,3 +56,9 @@ RUN echo "source /root/ros2_ws/install/setup.bash" >> ~/.bashrc
 
 # Run a default command, e.g., starting a bash shell
 CMD ["bash"]
+
+
+# docker run \
+#   -v /run/user/1000/pulse/native:/run/user/1000/pulse/native \
+#   -e PULSE_SERVER=unix:/run/user/1000/pulse/native \
+#   -u 1000:1000 \
