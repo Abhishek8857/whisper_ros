@@ -41,6 +41,7 @@ namespace silero_vad {
 /// audio data, and predict the presence of speech. It manages the model state
 /// and handles input/output tensors for inference.
 class VadIterator {
+
 public:
   /// @brief Constructs a VadIterator object.
   ///
@@ -55,7 +56,8 @@ public:
   /// segments (default: 30).
   VadIterator(const std::string &model_path, int sample_rate = 16000,
               int frame_size_ms = 32, float threshold = 0.5f,
-              int min_silence_ms = 100, int speech_pad_ms = 30);
+              int min_silence_ms = 100, int speech_pad_ms = 30,
+              bool use_cuda = false);
 
   /// @brief Resets the internal state of the model.
   ///
@@ -82,6 +84,9 @@ private:
   /// Memory info for tensor allocation.
   Ort::MemoryInfo memory_info =
       Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeCPU);
+
+  // Indicates whether to use CUDA for inference.
+  bool use_cuda;
 
   /// Detection threshold for speech probability.
   float threshold;

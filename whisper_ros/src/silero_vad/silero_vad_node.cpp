@@ -29,6 +29,7 @@
 #include <portaudio.h>
 
 #include "silero_vad/silero_vad_node.hpp"
+#include "whisper_utils/model_download.hpp"
 
 using namespace silero_vad;
 using std::placeholders::_1;
@@ -39,32 +40,47 @@ SileroVadNode::SileroVadNode()
       publish(false) {
 
   this->declare_parameter<bool>("enabled", true);
+  this->declare_parameter<std::string>("model_repo", "");
+  this->declare_parameter<std::string>("model_filename", "");
   this->declare_parameter<std::string>("model_path", "");
   this->declare_parameter<int>("sample_rate", 16000);
   this->declare_parameter<int>("frame_size_ms", 32);
   this->declare_parameter<float>("threshold", 0.5f);
   this->declare_parameter<int>("min_silence_ms", 100);
   this->declare_parameter<int>("speech_pad_ms", 30);
+  this->declare_parameter<bool>("use_cuda", false);
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 SileroVadNode::on_configure(const rclcpp_lifecycle::State &) {
 
-  RCLCPP_INFO(get_logger(), "[%s] Configuring...", this->get_name());
+  RCLCPP_INFO(this->get_logger(), "[%s] Configuring...", this->get_name());
 
   // get params
   bool enabled;
   this->get_parameter("enabled", enabled);
   this->enabled.store(enabled);
 
+  std::string model_repo;
+  std::string model_filename;
+
+  this->get_parameter("model_repo", model_repo);
+  this->get_parameter("model_filename", model_filename);
   this->get_parameter("model_path", this->model_path_);
   this->get_parameter("sample_rate", this->sample_rate_);
   this->get_parameter("frame_size_ms", this->frame_size_ms_);
   this->get_parameter("threshold", this->threshold_);
   this->get_parameter("min_silence_ms", this->min_silence_ms_);
   this->get_parameter("speech_pad_ms", this->speech_pad_ms_);
+  this->get_parameter("use_cuda", this->use_cuda_);
 
-  RCLCPP_INFO(get_logger(), "[%s] Configured", this->get_name());
+  // download model
+  if (this->model_path_.empty()) {
+    this->model_path_ =
+        whisper_utils::download_model(model_repo, model_filename);
+  }
+
+  RCLCPP_INFO(this->get_logger(), "[%s] Configured", this->get_name());
 
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::
       CallbackReturn::SUCCESS;
@@ -73,12 +89,13 @@ SileroVadNode::on_configure(const rclcpp_lifecycle::State &) {
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 SileroVadNode::on_activate(const rclcpp_lifecycle::State &) {
 
-  RCLCPP_INFO(get_logger(), "[%s] Activating...", this->get_name());
+  RCLCPP_INFO(this->get_logger(), "[%s] Activating...", this->get_name());
 
   // create silero-vad
   this->vad_iterator = std::make_unique<VadIterator>(
       this->model_path_, this->sample_rate_, this->frame_size_ms_,
-      this->threshold_, this->min_silence_ms_, this->speech_pad_ms_);
+      this->threshold_, this->min_silence_ms_, this->speech_pad_ms_,
+      this->use_cuda_);
 
   this->publisher_ =
       this->create_publisher<std_msgs::msg::Float32MultiArray>("vad", 10);
@@ -90,7 +107,7 @@ SileroVadNode::on_activate(const rclcpp_lifecycle::State &) {
   this->enable_srv_ = this->create_service<std_srvs::srv::SetBool>(
       "enable_vad", std::bind(&SileroVadNode::enable_cb, this, _1, _2));
 
-  RCLCPP_INFO(get_logger(), "[%s] Activated", this->get_name());
+  RCLCPP_INFO(this->get_logger(), "[%s] Activated", this->get_name());
 
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::
       CallbackReturn::SUCCESS;
@@ -99,7 +116,7 @@ SileroVadNode::on_activate(const rclcpp_lifecycle::State &) {
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 SileroVadNode::on_deactivate(const rclcpp_lifecycle::State &) {
 
-  RCLCPP_INFO(get_logger(), "[%s] Deactivating...", this->get_name());
+  RCLCPP_INFO(this->get_logger(), "[%s] Deactivating...", this->get_name());
 
   // reset silero
   this->vad_iterator->reset_states();
@@ -113,7 +130,7 @@ SileroVadNode::on_deactivate(const rclcpp_lifecycle::State &) {
   this->enable_srv_.reset();
   this->enable_srv_ = nullptr;
 
-  RCLCPP_INFO(get_logger(), "[%s] Deactivated", this->get_name());
+  RCLCPP_INFO(this->get_logger(), "[%s] Deactivated", this->get_name());
 
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::
       CallbackReturn::SUCCESS;
@@ -122,8 +139,8 @@ SileroVadNode::on_deactivate(const rclcpp_lifecycle::State &) {
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 SileroVadNode::on_cleanup(const rclcpp_lifecycle::State &) {
 
-  RCLCPP_INFO(get_logger(), "[%s] Cleaning up...", this->get_name());
-  RCLCPP_INFO(get_logger(), "[%s] Cleaned up", this->get_name());
+  RCLCPP_INFO(this->get_logger(), "[%s] Cleaning up...", this->get_name());
+  RCLCPP_INFO(this->get_logger(), "[%s] Cleaned up", this->get_name());
 
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::
       CallbackReturn::SUCCESS;
@@ -132,8 +149,8 @@ SileroVadNode::on_cleanup(const rclcpp_lifecycle::State &) {
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 SileroVadNode::on_shutdown(const rclcpp_lifecycle::State &) {
 
-  RCLCPP_INFO(get_logger(), "[%s] Shutting down...", this->get_name());
-  RCLCPP_INFO(get_logger(), "[%s] Shutted down", this->get_name());
+  RCLCPP_INFO(this->get_logger(), "[%s] Shutting down...", this->get_name());
+  RCLCPP_INFO(this->get_logger(), "[%s] Shutted down", this->get_name());
 
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::
       CallbackReturn::SUCCESS;

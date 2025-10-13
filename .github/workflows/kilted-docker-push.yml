@@ -1,11 +1,11 @@
-name: Jazzy Docker Push
+name: Kilted Docker Push
 
 on:
   release:
     types: [published]
 
 jobs:
-  jazzy_docker_push:
+  kilted_docker_push:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -30,6 +30,6 @@ jobs:
       - name: Build and push docker
         uses: docker/build-push-action@v6
         with:
-          build-args: ROS_DISTRO=jazzy
+          build-args: ROS_DISTRO=kilted
           push: true
-          tags: mgons/whisper_ros:jazzy-${{ github.event.release.tag_name }}
+          tags: mgons/whisper_ros:kilted-${{ github.event.release.tag_name }}

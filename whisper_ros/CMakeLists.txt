@@ -16,6 +16,7 @@ find_package(audio_common_msgs REQUIRED)
 find_package(whisper_msgs REQUIRED)
 find_package(whisper_cpp_vendor REQUIRED)
 find_package(whisper_onnxruntime_vendor REQUIRED)
+find_package(whisper_hfhub_vendor REQUIRED)
 find_library(PORTAUDIO_LIB portaudio REQUIRED)
 
 include_directories(
@@ -30,18 +31,17 @@ add_executable(whisper_node
   src/whisper_ros/whisper_base_node.cpp
   src/whisper_ros/whisper.cpp
   src/whisper_utils/logs.cpp
+  src/whisper_utils/download_model.cpp
 )
-target_link_libraries(whisper_node 
+target_link_libraries(whisper_node
+  rclcpp::rclcpp
+  rclcpp_lifecycle::rclcpp_lifecycle
   whisper_cpp_vendor::grammar
   whisper_cpp_vendor::whisper
-)
-ament_target_dependencies(whisper_node
-  rclcpp
-  rclcpp_lifecycle
-  std_msgs
-  std_srvs
-  whisper_msgs
-  whisper_cpp_vendor
+  whisper_hfhub_vendor::hfhub
+  ${std_msgs_TARGETS}
+  ${std_srvs_TARGETS}
+  ${whisper_msgs_TARGETS}
 )
 
 # whisper_server_node
@@ -51,19 +51,18 @@ add_executable(whisper_server_node
   src/whisper_ros/whisper_base_node.cpp
   src/whisper_ros/whisper.cpp
   src/whisper_utils/logs.cpp
+  src/whisper_utils/download_model.cpp
 )
 target_link_libraries(whisper_server_node
+  rclcpp::rclcpp
+  rclcpp_action::rclcpp_action
+  rclcpp_lifecycle::rclcpp_lifecycle
   whisper_cpp_vendor::grammar
   whisper_cpp_vendor::whisper
-)
-ament_target_dependencies(whisper_server_node
-  rclcpp
-  rclcpp_action
-  rclcpp_lifecycle
-  std_msgs
-  std_srvs
-  whisper_msgs
-  whisper_cpp_vendor
+  whisper_hfhub_vendor::hfhub
+  ${std_msgs_TARGETS}
+  ${std_srvs_TARGETS}
+  ${whisper_msgs_TARGETS}
 )
 
 # silero_vad_node
@@ -73,15 +72,17 @@ add_executable(silero_vad_node
   src/silero_vad/vad_iterator.cpp
   src/silero_vad/timestamp.cpp
   src/whisper_utils/logs.cpp
+  src/whisper_utils/download_model.cpp
 )
-target_link_libraries(silero_vad_node ${PORTAUDIO_LIB})
-ament_target_dependencies(silero_vad_node
-  rclcpp
-  rclcpp_lifecycle
-  std_msgs
-  std_srvs
-  audio_common_msgs
-  whisper_onnxruntime_vendor
+target_link_libraries(silero_vad_node
+  ${PORTAUDIO_LIB}
+  rclcpp::rclcpp
+  rclcpp_lifecycle::rclcpp_lifecycle
+  whisper_onnxruntime_vendor::whisper_onnxruntime  # Use the exported interface target
+  whisper_hfhub_vendor::hfhub
+  ${std_msgs_TARGETS}
+  ${std_srvs_TARGETS}
+  ${audio_common_msgs_TARGETS}
 )
 
 # Export dependencies
@@ -103,5 +104,11 @@ install(TARGETS
   silero_vad_node
   DESTINATION lib/${PROJECT_NAME}
 )
+
+# TEST
+if(BUILD_TESTING)
+  find_package(ament_cmake_clang_format REQUIRED)
+  ament_clang_format(CONFIG_FILE .clang-format)
+endif()
 
 ament_package()
